@@ -1,6 +1,4 @@
 import * as fs from 'fs';
-// import { promises as fsa, createReadStream } from 'fs';
-import { Readable } from 'stream';
 
 export interface ExtractStringsOptions {
   encoding?: BufferEncoding;  // default 'utf8'
@@ -47,16 +45,9 @@ export function extractStrings(
   return result;
 }
 
-
-
-
 export async function* extractStringsAsync(filePath: string, options?: ExtractStringsOptions): AsyncGenerator<string> {
-  console.time("read and parse whole file");
   const lines = extractStrings(filePath, options);
-  console.timeEnd("read and parse whole file");
-  console.time("yield return all lines");
   for(const line of lines){
     yield line;
   }
-  console.timeEnd("yield return all lines");
 }

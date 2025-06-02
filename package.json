@@ -64,8 +64,5 @@
     "esbuild": "^0.25.5",
     "eslint": "9.28.0",
     "typescript": "^5.8.3"
-  },
-  "dependencies": {
-    "readlines": "^0.2.0"
   }
 }

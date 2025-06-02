@@ -206,13 +206,18 @@
 
     const VALID_RETURN_TYPE = 'UserReturnType';
 
+    let wrapperModel; // This is the hidden model used for diagnostics
+
     function createFullWrappedCode(userCode) {
       return `
-      const userFn: () => ${VALID_RETURN_TYPE} =
-        () => ${userCode};
-    `;
-
+      // Dummy line to ensure this is treated as a script/module
+      
+      async function* __userWrapper__(): AsyncGenerator<string> {
+        ${userCode}
+      }
+      `;
     }
+
 
     function flattenDiagnosticMessageText(messageText) {
       if (typeof messageText === 'string') {
@@ -256,25 +261,30 @@
 
     function validateUserCode() {
       const userCode = editor.getValue();
-      // const userCodeLines = userCode.split('\n').length;
       const fullCode = createFullWrappedCode(userCode);
-      console.log(fullCode);
-      const model = monaco.editor.createModel(fullCode, 'typescript');
+
+      if (!wrapperModel) {
+        wrapperModel = monaco.editor.createModel(fullCode, 'typescript');
+      } else {
+        wrapperModel.setValue(fullCode);
+      }
 
       monaco.languages.typescript.getTypeScriptWorker().then(worker => {
-        worker(model.uri).then(client => {
-          client.getSemanticDiagnostics(model.uri.toString()).then(diagnostics => {
+        worker(wrapperModel.uri).then(client => {
+          client.getSemanticDiagnostics(wrapperModel.uri.toString()).then(diagnostics => {
+            monaco.editor.setModelMarkers(editor.getModel(), 'typescript', []);
             const markers = diagnostics.map(diag => {
               const startPos = offsetToLineColumn(fullCode, diag.start);
               const endPos = offsetToLineColumn(fullCode, diag.start + diag.length);
 
-              const wrapperLinesBeforeUserCode = 2; // lines before userCode starts
-              const wrapperColumnsBeforeUserCode = 14; // columns before userCode starts
+              // 2 lines before user code starts
+              const wrapperLinesBeforeUserCode = 3; // includes declare + export + function line
               const startLineNumber = startPos.line - wrapperLinesBeforeUserCode;
               const endLineNumber = endPos.line - wrapperLinesBeforeUserCode;
-              const startColumn = startPos.column - wrapperColumnsBeforeUserCode;
-              const endColumn = endPos.column - wrapperColumnsBeforeUserCode;
-              const msg = {
+              const startColumn = startPos.column;
+              const endColumn = endPos.column;
+
+              return {
                 severity: monaco.MarkerSeverity.Error,
                 message: flattenDiagnosticMessageText(diag.messageText),
                 startLineNumber,
@@ -282,11 +292,9 @@
                 endLineNumber,
                 endColumn
               };
-              return msg;
             });
-            console.log(markers);
+
             monaco.editor.setModelMarkers(editor.getModel(), 'customValidator', markers);
-            model.dispose();
           });
         });
       });
@@ -296,8 +304,12 @@
       require.config({ paths: { vs: window.monacoBasePath || './vs' } });
 
       require(['vs/editor/editor.main'], () => {
+        const defaultCode = `for await (const line of doc.linesAsync) {
+  if (line.includes("TODO")) yield line;
+}`;
+
         editor = monaco.editor.create(inputContainer, {
-          value: `lines.filter(x => x.includes("TODO"))`,
+          value: defaultCode,
           language: 'typescript',
           theme: 'vs-dark',
           hover: true,
@@ -305,15 +317,15 @@
           minimap: { enabled: false },
         });
 
-
         monaco.languages.typescript.typescriptDefaults.addExtraLib(window.linqTypings, 'ts:linq.d.ts');
 
         monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+          moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+          module: monaco.languages.typescript.ModuleKind.ESNext,
           target: monaco.languages.typescript.ScriptTarget.ESNext,
           allowNonTsExtensions: true,
           noEmit: true,
           strict: true,
-
           moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
           esModuleInterop: true,
           jsx: monaco.languages.typescript.JsxEmit.React,
@@ -330,9 +342,29 @@
             timeoutId = setTimeout(() => runCode(), 300);
           }
         });
+        const tsOwner = 'typescript';
+
+        monaco.editor.onDidChangeMarkers((uris) => {
+          for (const uri of uris) {
+            const model = monaco.editor.getModel(uri);
+            if (!model) continue;
+
+            // Get current markers
+            const allMarkers = monaco.editor.getModelMarkers({ resource: uri });
+
+            // Filter out TypeScript-owned markers
+            const filteredMarkers = allMarkers.filter(m => m.owner !== tsOwner);
+
+            // Overwrite markers with only the non-TypeScript ones
+            monaco.editor.setModelMarkers(model, tsOwner, []); // Clear TS markers
+            monaco.editor.setModelMarkers(model, 'customValidator', filteredMarkers); // Restore others (if any)
+            console.log("onDidChangeMarkers");
+          }
+        });
 
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runCode);
         editor.layout();
+        validateUserCode(); // initial pass
       });
     }
 
@@ -341,8 +373,8 @@
 
       outputElement.textContent = '';
       runningIndicator.style.display = 'block';
-      
-    
+
+
       vscode.postMessage({
         command: 'execute',
         code: editor.getValue(),

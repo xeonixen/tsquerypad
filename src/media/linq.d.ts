@@ -3,12 +3,16 @@ declare const doc: {
   get linesAsync(): AsyncGenerator<string>;
   get fullText(): string;
 }
+//@ts-ignore
+declare async function* __userWrapper__(): AsyncGenerator<any>;
 type UserReturnType = 
     string 
   | string[] 
   | number[]
   | { x: number, y: number }[]
-  | { label: string, value: number }[];
+  | { label: string, value: number }[]
+  | AsyncGenerator<string>
+  | void;
 interface Array<T> {
     /**
      * Returns a new array with unique elements (removes duplicates).

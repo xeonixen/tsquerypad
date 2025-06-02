@@ -43,8 +43,8 @@ esbuild.build({
   target: 'node16',        // Adjust to your Node version (VS Code currently uses node16)
   outfile: 'out/extension.js',
   external: ['vscode'],    // vscode API provided by VS Code, don’t bundle it
-  sourcemap: true,
-  minify: false,
+  sourcemap: false,
+  minify: true,
 }).catch(() => process.exit(1))
   .then(() => {
     copyStaticFiles('src/media', 'out/media');

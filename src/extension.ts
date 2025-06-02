@@ -5,8 +5,9 @@ import * as vscode from 'vscode';
 import { defineCustomFunctions } from './media/linq';
 import { extractStrings, extractStringsAsync } from './extract_strings';
 import * as ts from 'typescript';
-import * as readline from 'readline';
+
 const baseDir = "out";
+
 let linqTypingsContent: string;
 export function activate(context: vscode.ExtensionContext) {
     const disposable = vscode.commands.registerCommand('tsquerypad.openQuery', (fileUri: vscode.Uri) => {
@@ -167,10 +168,6 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
 
                 let userCode = message.code.trim();
 
-
-                // const returnType = getReturnTypeFromFile(userCode, linqTypingsContent);
-                // if (returnType === 'void') {
-
                 if (!/return/.test(userCode) && !/for await/.test(userCode) && !/yield/.test(userCode)) {
                     isAsync = false;
                     userCode = `return ${userCode}`;
@@ -187,7 +184,7 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
                         return readFullText(filePath, originalDocument);
                     }
                 };
-                // const lines = await getFileContent(filePath, originalDocument);
+                
                 const transpiled = ts.transpile(userCode, {
                     module: ts.ModuleKind.ESNext,     // or CommonJS if you need require()
                     target: ts.ScriptTarget.ES2020,   // or ES2017 or latest
@@ -234,91 +231,8 @@ async function parseResult(result: AsyncGenerator<string> | string[] | string): 
 }
 async function asyncGeneratorToString(gen: AsyncGenerator<string>): Promise<string> {
     let result = [];
-    let chunkCount = 0;
-    console.time(`await chunk(line) number ${chunkCount}`);
     for await (const chunk of gen) {
         result.push(chunk);
-        console.timeEnd(`await chunk(line) number ${chunkCount}`);
-        chunkCount++;
-        console.time(`await chunk(line) number ${chunkCount}`);
     }
     return result.join('\n');
-}
-
-function getReturnTypeFromFile(sourceCode: string, customDeclarings: string): string | undefined {
-    // Create a virtual file map (you can also write to disk if needed)
-    const fileName = 'supertemp.ts';
-    const dFileName = 'superlinq.d.ts';
-    sourceCode = `
-  function test(){
-    ${sourceCode}
-  }
-  `;
-    const sourceFiles = new Map<string, string>([
-        [fileName, sourceCode],
-        [dFileName, customDeclarings],
-    ]);
-
-    // Create default host to delegate to for system files, std libs, etc.
-    const defaultHost = ts.createCompilerHost({});
-
-    // Override only fileExists and readFile to provide in-memory files
-    const host: ts.CompilerHost = {
-        ...defaultHost,
-        fileExists: (fileName) => sourceFiles.has(fileName) || defaultHost.fileExists(fileName),
-        readFile: (fileName) => sourceFiles.get(fileName) ?? defaultHost.readFile(fileName),
-        getSourceFile: (fileName, languageVersionOrOptions, err) => {
-            const sf = sourceFiles.get(fileName);
-            return sf ?
-                ts.createSourceFile(fileName, sf, ts.ScriptTarget.Latest, true) :
-                defaultHost.getSourceFile(fileName, languageVersionOrOptions, err);
-        }
-        // Don't override getSourceFile — defaultHost uses readFile internally
-    };
-
-    // Create a program using the default host (includes standard lib)
-    const program = ts.createProgram({
-        rootNames: [fileName, dFileName],
-        options: {
-            target: ts.ScriptTarget.ESNext,
-            module: ts.ModuleKind.CommonJS,
-
-        },
-        host: host,
-    });
-
-    const checker = program.getTypeChecker();
-
-    let returnType: string | undefined;
-
-    const sf = program.getSourceFile(fileName);
-    const dSf = program.getSourceFile(dFileName);
-    if (!sf || !dSf) return undefined;
-
-    ts.forEachChild(sf, function visit(node) {
-        if (
-            ts.isFunctionDeclaration(node) &&
-            node.name?.text === 'test' &&
-            node.body
-        ) {
-            const signature = checker.getSignatureFromDeclaration(node);
-            if (signature) {
-                const type = checker.getReturnTypeOfSignature(signature);
-                returnType = checker.typeToString(type);
-            }
-        }
-        ts.forEachChild(node, visit);
-    });
-
-    return returnType;
-}
-
-
-
-function test() {
-    const lines: string[] = [];
-    const userFn: () => string | string[] =
-        () => {
-            return lines.filter(x => x.includes("TODO"));
-        };
 }
