@@ -37,13 +37,15 @@ jobs:
         run: |
           git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git
 
-          # Bump version and commit but do NOT create tag
+          # Bump version in package.json and package-lock.json without tagging
           NEW_VERSION=$(npm version patch --no-git-tag-version -m "ci: bump version to %s [skip ci]")
 
-          # Create the tag manually
-          git tag "$NEW_VERSION"
+          # Stage and commit the changes
+          git add package.json package-lock.json
+          git commit -m "ci: bump version to $NEW_VERSION [skip ci]"
 
-          # Push commit and tag explicitly using PAT-authenticated remote
+          # Create and push the tag
+          git tag "$NEW_VERSION"
           git push origin HEAD
           git push origin "$NEW_VERSION"
 
