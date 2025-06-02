@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>LINQ Monaco</title>
+  <link rel="stylesheet" data-name="vs/editor/editor.main" href="./vs/editor/editor.main.css" />
+  <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+      font-family: sans-serif;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #header {
+      background-color: #2c2f34;
+      color: white;
+      padding: 10px;
+      font-size: 16px;
+      display: flex;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    #runButton {
+      background-color: #007acc;
+      color: white;
+      border: none;
+      padding: 4px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 3px;
+    }
+
+    #help {
+      padding: 8px 12px;
+      background: #252526;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+
+    #input-output-container {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      user-select: none;
+    }
+
+
+    #output-container {
+      width: 100%;
+      overflow: auto;
+    }
+
+    #input-container {
+      width: 100%;
+      height: 50%;
+    }
+
+    #divider {
+      height: 6px;
+      background: #444;
+      cursor: row-resize;
+      flex-shrink: 0;
+    }
+
+    #output-container {
+      display: flex;
+      flex-direction: column;
+      padding: 0 10px 10px 10px;
+      height: 50%;
+      background: #1e1e1e;
+      border-top: 1px solid #333;
+      position: relative;
+      overflow-y: auto;
+      scrollbar-width: 5px;
+    }
+
+    #running-indicator {
+      flex: 0 0 auto;
+      position: absolute;
+      top: 5px;
+      right: 10px;
+      display: none;
+    }
+
+    #output {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin: 0;
+      outline: none;
+      user-select: text;
+      box-sizing: border-box;
+    }
+
+    #output:focus {
+      outline: none;
+    }
+
+    #method-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .method-item {
+      cursor: pointer;
+      padding: 6px 10px;
+      color: #d4d4d4;
+      font-weight: bold;
+      font-size: 14px;
+      transition: color 0.2s ease;
+    }
+
+    .method-item:hover {
+      color: #569cd6;
+    }
+
+    .method-description {
+      padding: 6px 10px;
+      color: #d4d4d4;
+      font-size: 13px;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .method-description.show {
+      display: block;
+      opacity: 1;
+    }
+
+    .methods-hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="help">
+    <b>lines</b> is the array of lines in the current document.<br />
+    <b style="cursor: pointer;" onclick="document.getElementById('method-list').classList.toggle('methods-hidden')">
+      Helper Methods
+    </b><br />
+    <ul id="method-list" class="methods-hidden"></ul>
+    Press <b>Ctrl+Enter</b> or click Run.
+  </div>
+
+  <div id="header">
+    <div>
+      <strong>File:</strong> <span id="fileName"></span> <br />
+      <strong>Type:</strong> <span id="fileType"></span>
+    </div>
+    <div>
+      <button id="runButton">▶ Run</button>
+      <label style="margin-left: 8px; user-select: none;">
+        <input type="checkbox" id="liveUpdateToggle" />
+        Live Update
+      </label>
+      <label style="margin-left: 8px; user-select: none;">
+        <input type="checkbox" id="runCodeAsAsyncToggle" />
+        Async
+      </label>
+    </div>
+  </div>
+
+  <div id="input-output-container">
+    <div id="input-container"></div>
+    <div id="divider"></div>
+    <div id="output-container">
+      <div id="running-indicator">Running...</div>
+      <div id="output" contenteditable="true" spellcheck="false" aria-readonly="true"></div>
+    </div>
+  </div>
+
+  <script src="./vs/loader.js"></script>
+  <script>
+    const inputContainer = document.getElementById('input-container');
+    const outputContainer = document.getElementById('output-container');
+    const divider = document.getElementById('divider');
+    const container = document.getElementById('input-output-container');
+    const methodList = document.getElementById('method-list');
+    const outputElement = document.getElementById('output');
+    const runningIndicator = document.getElementById('running-indicator');
+    const runButton = document.getElementById('runButton');
+    const fileNameElement = document.getElementById('fileName');
+    const fileTypeElement = document.getElementById('fileType');
+    const vscode = acquireVsCodeApi();
+    const liveUpdateToggle = document.getElementById("liveUpdateToggle");
+    let editor;
+    let isDragging = false;
+
+    const VALID_RETURN_TYPE = 'UserReturnType';
+
+    function createFullWrappedCode(userCode) {
+      return `
+      const userFn: () => ${VALID_RETURN_TYPE} =
+        () => ${userCode};
+    `;
+
+    }
+
+    function flattenDiagnosticMessageText(messageText) {
+      if (typeof messageText === 'string') {
+        return messageText;
+      } else if (messageText && typeof messageText.messageText === 'string') {
+        let result = messageText.messageText;
+        if (messageText.next && messageText.next.length > 0) {
+          for (const child of messageText.next) {
+            result += '\n' + flattenDiagnosticMessageText(child);
+          }
+        }
+        return result;
+      } else {
+        return '';
+      }
+    }
+    function offsetToLineColumn(text, offset) {
+      const lines = text.split(/\r?\n/);
+      let runningLength = 0;
+
+      for (let i = 0; i < lines.length; i++) {
+        const lineLength = lines[i].length + 1; // +1 for the newline char
+
+        if (offset < runningLength + lineLength) {
+          return {
+            line: i + 1,           // Monaco lines are 1-based
+            column: offset - runningLength + 1, // Monaco columns are 1-based
+          };
+        }
+
+        runningLength += lineLength;
+      }
+
+      // If offset beyond text length, return last position
+      return {
+        line: lines.length,
+        column: lines[lines.length - 1].length + 1,
+      };
+    }
+
+
+    function validateUserCode() {
+      const userCode = editor.getValue();
+      // const userCodeLines = userCode.split('\n').length;
+      const fullCode = createFullWrappedCode(userCode);
+      console.log(fullCode);
+      const model = monaco.editor.createModel(fullCode, 'typescript');
+
+      monaco.languages.typescript.getTypeScriptWorker().then(worker => {
+        worker(model.uri).then(client => {
+          client.getSemanticDiagnostics(model.uri.toString()).then(diagnostics => {
+            const markers = diagnostics.map(diag => {
+              const startPos = offsetToLineColumn(fullCode, diag.start);
+              const endPos = offsetToLineColumn(fullCode, diag.start + diag.length);
+
+              const wrapperLinesBeforeUserCode = 2; // lines before userCode starts
+              const wrapperColumnsBeforeUserCode = 14; // columns before userCode starts
+              const startLineNumber = startPos.line - wrapperLinesBeforeUserCode;
+              const endLineNumber = endPos.line - wrapperLinesBeforeUserCode;
+              const startColumn = startPos.column - wrapperColumnsBeforeUserCode;
+              const endColumn = endPos.column - wrapperColumnsBeforeUserCode;
+              const msg = {
+                severity: monaco.MarkerSeverity.Error,
+                message: flattenDiagnosticMessageText(diag.messageText),
+                startLineNumber,
+                startColumn,
+                endLineNumber,
+                endColumn
+              };
+              return msg;
+            });
+            console.log(markers);
+            monaco.editor.setModelMarkers(editor.getModel(), 'customValidator', markers);
+            model.dispose();
+          });
+        });
+      });
+    }
+
+    function initMonacoEditor() {
+      require.config({ paths: { vs: window.monacoBasePath || './vs' } });
+
+      require(['vs/editor/editor.main'], () => {
+        editor = monaco.editor.create(inputContainer, {
+          value: `lines.filter(x => x.includes("TODO"))`,
+          language: 'typescript',
+          theme: 'vs-dark',
+          hover: true,
+          fontSize: 14,
+          minimap: { enabled: false },
+        });
+
+
+        monaco.languages.typescript.typescriptDefaults.addExtraLib(window.linqTypings, 'ts:linq.d.ts');
+
+        monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+          target: monaco.languages.typescript.ScriptTarget.ESNext,
+          allowNonTsExtensions: true,
+          noEmit: true,
+          strict: true,
+
+          moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+          esModuleInterop: true,
+          jsx: monaco.languages.typescript.JsxEmit.React,
+          lib: ['es2020'],
+        });
+
+        let timeoutId = null;
+
+        editor.onDidChangeModelContent(() => {
+          validateUserCode();
+
+          if (liveUpdateToggle.checked) {
+            if (timeoutId) clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => runCode(), 300);
+          }
+        });
+
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runCode);
+        editor.layout();
+      });
+    }
+
+    function runCode() {
+      if (!editor) return;
+
+      outputElement.textContent = '';
+      runningIndicator.style.display = 'block';
+      
+    
+      vscode.postMessage({
+        command: 'execute',
+        code: editor.getValue(),
+        isAsync: document.getElementById('runCodeAsAsyncToggle').checked
+      });
+    }
+
+    function setupDividerDragging() {
+      divider.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        document.body.style.cursor = 'row-resize';
+        e.preventDefault();
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          document.body.style.cursor = 'default';
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const containerRect = container.getBoundingClientRect();
+        const minHeight = 50;
+        let newInputHeight = e.clientY - containerRect.top;
+
+        if (newInputHeight < minHeight) newInputHeight = minHeight;
+        if (newInputHeight > containerRect.height - minHeight - divider.offsetHeight) {
+          newInputHeight = containerRect.height - minHeight - divider.offsetHeight;
+        }
+
+        inputContainer.style.height = `${newInputHeight}px`;
+        outputContainer.style.height = `${containerRect.height - newInputHeight - divider.offsetHeight}px`;
+
+        editor?.layout();
+      });
+    }
+
+    function saveState() {
+      if (!editor) return;
+      vscode.setState({
+        code: editor.getValue(),
+        output: outputElement.textContent,
+      });
+    }
+
+    function loadState() {
+      const savedState = vscode.getState();
+      if (savedState) {
+        if (savedState.code) editor?.setValue(savedState.code);
+        if (savedState.output) outputElement.textContent = savedState.output;
+      }
+    }
+
+    function setupRunHandlers() {
+      runButton.addEventListener('click', runCode);
+
+      window.addEventListener('message', (event) => {
+        const msg = event.data;
+        if (msg.command === 'output') {
+          runningIndicator.style.display = 'none';
+          outputElement.textContent = msg.result;
+          saveState();
+        }
+      });
+    }
+
+    function initMethodList() {
+      if (!window.methodDescriptions) return;
+
+      window.methodDescriptions.forEach(method => {
+        const listItem = document.createElement('li');
+        const methodElement = document.createElement('div');
+        methodElement.className = 'method-item';
+        methodElement.textContent = method.name;
+
+        const descriptionContainer = document.createElement('div');
+        descriptionContainer.className = 'method-description';
+        descriptionContainer.style.display = 'none';
+
+        const signatureElement = document.createElement('div');
+        signatureElement.textContent = method.signature;
+
+        const descriptionElement = document.createElement('div');
+        descriptionElement.textContent = method.description;
+
+        descriptionContainer.appendChild(signatureElement);
+        descriptionContainer.appendChild(descriptionElement);
+
+        methodElement.addEventListener('click', () => {
+          document.querySelectorAll('.method-description').forEach(desc => {
+            if (desc !== descriptionContainer) {
+              desc.style.display = 'none';
+              desc.classList.remove('show');
+            }
+          });
+
+          const isHidden = descriptionContainer.style.display === 'none';
+          descriptionContainer.style.display = isHidden ? 'block' : 'none';
+          descriptionContainer.classList.toggle('show', isHidden);
+        });
+
+        listItem.appendChild(methodElement);
+        listItem.appendChild(descriptionContainer);
+        methodList.appendChild(listItem);
+      });
+    }
+
+    function initHeader() {
+      fileNameElement.textContent = window.fileName;
+      fileTypeElement.textContent = window.fileType;
+    }
+
+    function init() {
+      initMethodList();
+      initMonacoEditor();
+      setupDividerDragging();
+      setupRunHandlers();
+      loadState();
+      initHeader();
+    }
+
+    window.addEventListener('resize', () => {
+      editor?.layout();
+    });
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+
+</html>

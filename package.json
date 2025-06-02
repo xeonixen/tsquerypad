@@ -1,0 +1,71 @@
+{
+  "name": "tsquerypad",
+  "displayName": "TSQueryPad",
+  "description": "TSQueryPad is a developer tool for querying files using TypeScript. Whether you're analyzing logs, extracting strings from binaries, or filtering source code, TSQueryPad gives you a flexible playground with LINQ-style helpers and full JavaScript/TypeScript power.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "repository": {
+    "type": "web",
+    "directory": "/",
+    "url": "http://code.com/prj"
+  },
+  "license": "MIT",
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "publisher": "marcuslonneborg",
+  "contributes": {
+    "commands": [
+      {
+        "command": "tsquerypad.openQuery",
+        "title": "Run TSQueryPad on Document"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "tsquerypad.openQuery",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": []
+  },
+  "files": [
+    "out/",
+    "media/",
+    "package.json",
+    "README.md"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "compile": "tsc -p ./",
+    "build": "node build.js",
+    "package": "vsce package",
+    "copy-media": "cp -r src/media out/",
+    "clean-out": "find out \\( -name '*.ts' ! -name '*.d.ts' -o -name '*.js.map' \\) -type f -delete",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.15.29",
+    "@types/vscode": "^1.100.0",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/test-cli": "0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.5",
+    "eslint": "9.28.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "readlines": "^0.2.0"
+  }
+}

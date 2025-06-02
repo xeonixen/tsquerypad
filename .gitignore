@@ -1,0 +1,49 @@
+# Node modules
+node_modules/
+
+# Build output
+out/
+dist/
+build/
+
+# VS Code specific
+.vscode/
+*.code-workspace
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Temporary files
+*.tmp
+*.temp
+
+# dotenv environment variables
+.env
+.env.local
+.env.*.local
+
+# Coverage reports
+coverage/
+
+# Yarn Integrity file
+.yarn-integrity
+
+# MacOS folder attributes
+.AppleDouble
+.LSOverride
+
+# VSIX packages (if you generate them)
+*.vsix
+
+# Ignore output from VSCode webviews or generated media cache (optional)
+out/media/
