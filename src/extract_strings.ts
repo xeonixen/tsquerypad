@@ -1,34 +1,28 @@
-import { promises as fs, createReadStream } from 'fs';
+import * as fs from 'fs';
+// import { promises as fsa, createReadStream } from 'fs';
+import { Readable } from 'stream';
 
 export interface ExtractStringsOptions {
   encoding?: BufferEncoding;  // default 'utf8'
   minLength?: number;         // default 4
 }
 
-type Input = string ;
-
 /**
  * Extracts printable ASCII strings from a binary file or buffer asynchronously.
- * @param input Path to the binary file OR a Buffer/Uint8Array containing binary data.
+ * @param filePath Path to the binary file OR a Buffer/Uint8Array containing binary data.
  * @param options Optional parameters:
  *   - encoding: character encoding to interpret strings (default 'utf8').
  *   - minLength: minimum length of extracted strings (default 4).
  * @returns Promise resolving to an array of strings found.
  */
-export async function extractStrings(
-  input: Input,
+export function extractStrings(
+  filePath: string,
   options?: ExtractStringsOptions
-): Promise<string[]> {
+): string[] {
   const encoding = options?.encoding ?? 'utf8';
   const minLength = options?.minLength ?? 4;
 
-  let buffer: Buffer;
-  if (typeof input === 'string') {
-    buffer = await fs.readFile(input);
-  } else {
-    // input is already a Buffer or Uint8Array, normalize to Buffer if needed
-    buffer = Buffer.isBuffer(input) ? input : Buffer.from(input);
-  }
+  const buffer = fs.readFileSync(filePath);
 
   const result: string[] = [];
   let currentChars: number[] = [];
@@ -54,33 +48,15 @@ export async function extractStrings(
 }
 
 
-export async function* extractStringsAsync(
-  filePath: string,
-  options?: ExtractStringsOptions
-): AsyncGenerator<string> {
-  const encoding = options?.encoding ?? 'utf8';
-  const minLength = options?.minLength ?? 4;
 
-  const stream = createReadStream(filePath);
-  let currentChars: number[] = [];
 
-  for await (const chunk of stream) {
-    const buffer: Buffer = typeof chunk === 'string' ? Buffer.from(chunk, encoding) : chunk;
-
-    for (const byte of buffer) {
-      if (byte >= 32 && byte <= 126) {
-        currentChars.push(byte);
-      } else {
-        if (currentChars.length >= minLength) {
-          yield Buffer.from(currentChars).toString(encoding);
-        }
-        currentChars = [];
-      }
-    }
+export async function* extractStringsAsync(filePath: string, options?: ExtractStringsOptions): AsyncGenerator<string> {
+  console.time("read and parse whole file");
+  const lines = extractStrings(filePath, options);
+  console.timeEnd("read and parse whole file");
+  console.time("yield return all lines");
+  for(const line of lines){
+    yield line;
   }
-
-  if (currentChars.length >= minLength) {
-    yield Buffer.from(currentChars).toString(encoding);
-  }
+  console.timeEnd("yield return all lines");
 }
-

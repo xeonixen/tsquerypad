@@ -1,4 +1,8 @@
-declare const lines: string[];
+declare const doc: {
+  get lines(): string[];
+  get linesAsync(): AsyncGenerator<string>;
+  get fullText(): string;
+}
 type UserReturnType = 
     string 
   | string[] 
