@@ -48,7 +48,6 @@ jobs:
           git tag "$NEW_VERSION"
           git push origin HEAD
           git push origin "$NEW_VERSION"
-
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Build VSIX package
@@ -68,3 +67,12 @@ jobs:
         with:
           name: tsquerypad-${{ steps.bump_version.outputs.version }}
           path: ${{ steps.rename_vsix.outputs.vsix_name }}
+
+      - name: Create GitHub Release with VSIX
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump_version.outputs.version }}
+          name: Release ${{ steps.bump_version.outputs.version }}
+          files: ${{ steps.rename_vsix.outputs.vsix_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
