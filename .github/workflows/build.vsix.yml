@@ -70,8 +70,6 @@ jobs:
 
       - name: Create GitHub Release with VSIX
         uses: softprops/action-gh-release@v2
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           tag_name: ${{ steps.bump_version.outputs.version }}
           name: Release ${{ steps.bump_version.outputs.version }}
