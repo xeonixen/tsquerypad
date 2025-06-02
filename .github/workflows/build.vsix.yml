@@ -32,13 +32,9 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
+          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git
           NEW_VERSION=$(npm version patch -m "ci: bump version to %s [skip ci]")
           echo "New version: $NEW_VERSION"
-
-          # Use PAT token for pushing
-          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/${{ github.repository }}.git
-
-          git push origin "$NEW_VERSION"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Build VSIX package
