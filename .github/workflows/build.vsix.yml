@@ -1,4 +1,4 @@
-name: Build VSIX Package
+name: Build and Tag VSIX
 
 on:
   push:
@@ -9,24 +9,50 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18' # Or whatever your extension uses
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Build VSIX package
-      run: npx vsce package
+      - name: Bump patch version, commit and push tag
+        id: bump_version
+        run: |
+          # Bump patch version (uses npm version)
+          NEW_VERSION=$(npm version patch -m "ci: bump version to %s [skip ci]")
 
-    - name: Upload VSIX artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: my-extension
-        path: "*.vsix"
+          echo "New version: $NEW_VERSION"
+
+          # Push the tag to origin
+          git push origin "$NEW_VERSION"
+
+          # Output new version for later steps
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build VSIX package
+        run: npx vsce package
+
+      - name: Rename VSIX file to include version
+        run: |
+          # Extract version number without leading 'v'
+          VERSION=${{ steps.bump_version.outputs.version }}
+          VERSION_NUMBER=${VERSION#v}
+          NEW_NAME="tsquerypad-v${VERSION_NUMBER}.vsix"
+
+          # Rename .vsix file
+          mv *.vsix $NEW_NAME
+
+          # Output new name for artifact upload
+          echo "vsix_name=$NEW_NAME" >> $GITHUB_OUTPUT
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsquerypad-${{ steps.bump_version.outputs.version }}
+          path: ${{ steps.rename_vsix.outputs.vsix_name }}
