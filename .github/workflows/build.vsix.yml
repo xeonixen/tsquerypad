@@ -75,4 +75,4 @@ jobs:
           name: Release ${{ steps.bump_version.outputs.version }}
           files: ${{ steps.rename_vsix.outputs.vsix_name }}
         env:
-          GITHUB_TOKEN: ${{ PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
