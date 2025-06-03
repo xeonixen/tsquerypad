@@ -4,7 +4,7 @@ import { promises as fsa } from 'fs';
 import * as vscode from 'vscode';
 import { defineCustomFunctions } from './media/linq';
 import { extractStrings, extractStringsAsync } from './extract_strings';
-import * as ts from 'typescript';
+import ts from 'typescript';
 
 const baseDir = "out";
 
@@ -99,12 +99,13 @@ function isBinaryFile(filePath: string): boolean {
 }
 
 function extractMethodDescriptions(typingsContent: string): { name: string, signature: string, description: string | undefined }[] {
-    const methodSignatureRegex = /(?:^\s*\/\/(.*))*?(?:^\s*\/\*\s*([\s\S]*?)\*\/)*?\s*?(^\s*\w+\s*(?:<.*>)*\(.*\):\s\S*?;)/gm;
+    const methodSignatureRegex = /(?:^\s*\/\/(.*))*?(?:^\s*\/\*\s*([\s\S]*?)\*\/)*?\s*?(^\s*\w+\s*(?:<.*>)*\(.*\):[\s\S]*?;)/gm;
     const methodInfo: { name: string, signature: string, description: string | undefined }[] = [];
     let match;
 
     while ((match = methodSignatureRegex.exec(typingsContent)) !== null) {
-        const comment = (match[1] || match[2])?.trim() ?? "";
+        let comment = (match[1] || match[2])?.trim() ?? "";
+        comment = comment.replaceAll('**','\n').replaceAll('*','\n');
         const signature = match[3]?.trim() ?? "";
         const name = signature.split('(')[0];
         methodInfo.push({ name, signature, description: comment });

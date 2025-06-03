@@ -15,6 +15,21 @@ export function defineCustomFunctions() {
         });
     }
 
+    if (!Array.prototype['last']) {
+        Object.defineProperty(Array.prototype, 'last', {
+            value: function <T, R>(this: T[], selector?: (item: T) => R): T[] {
+                const seen = new Set<any>();
+                return this.filter(item => {
+                    const key = selector ? selector(item) : item;
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                });
+            },
+            enumerable: false
+        });
+    }
+
     if (!Array.prototype['zip']) {
         Object.defineProperty(Array.prototype, 'zip', {
             value: function (other: any[], combiner: Function = (a: any, b: any) => [a, b]) {
@@ -78,4 +93,113 @@ export function defineCustomFunctions() {
             enumerable: false
         });
     }
+    if (!Array.prototype['groupBy']) {
+        Object.defineProperty(Array.prototype, 'groupBy', {
+            value: function (keySelector) {
+                const map = new Map();
+                for (const item of this) {
+                    const key = keySelector(item);
+                    if (!map.has(key)) {
+                        map.set(key, []);
+                    }
+                    map.get(key).push(item);
+                }
+                const groups = [];
+                for (const [key, values] of map) {
+                    // Define the key property on the array of grouped items
+                    Object.defineProperty(values, 'key', {
+                        value: key,
+                        enumerable: false,
+                        writable: false,
+                        configurable: false
+                    });
+                    groups.push(values);
+                }
+                return groups;
+            },
+            enumerable: false
+        });
+    }
+    if (!Array.prototype['last']) {
+        Object.defineProperty(Array.prototype, 'last', {
+            value: function (predicate) {
+                if (!predicate) {
+                    if (this.length === 0) throw new Error('Array is empty');
+                    return this[this.length - 1];
+                }
+                for (let i = this.length - 1; i >= 0; i--) {
+                    if (predicate(this[i])) {
+                        return this[i];
+                    }
+                }
+                throw new Error('No element satisfies the predicate.');
+            },
+            enumerable: false,
+        });
+    }
+
+    if (!Array.prototype['lastOrDefault']) {
+        Object.defineProperty(Array.prototype, 'lastOrDefault', {
+            value: function (predicate) {
+                if (!predicate) {
+                    return this.length === 0 ? undefined : this[this.length - 1];
+                }
+                for (let i = this.length - 1; i >= 0; i--) {
+                    if (predicate(this[i])) {
+                        return this[i];
+                    }
+                }
+                return undefined;
+            },
+            enumerable: false,
+        });
+    }
+
+    if (!Array.prototype['first']) {
+        Object.defineProperty(Array.prototype, 'first', {
+            value: function (predicate) {
+                if (!predicate) {
+                    if (this.length === 0) throw new Error('Array is empty');
+                    return this[0];
+                }
+                for (let i = 0; i < this.length; i++) {
+                    if (predicate(this[i])) {
+                        return this[i];
+                    }
+                }
+                throw new Error('No element satisfies the predicate.');
+            },
+            enumerable: false,
+        });
+    }
+
+    if (!Array.prototype['firstOrDefault']) {
+        Object.defineProperty(Array.prototype, 'firstOrDefault', {
+            value: function (predicate) {
+                if (!predicate) {
+                    return this.length === 0 ? undefined : this[0];
+                }
+                for (let i = 0; i < this.length; i++) {
+                    if (predicate(this[i])) {
+                        return this[i];
+                    }
+                }
+                return undefined;
+            },
+            enumerable: false,
+        });
+    }
+
+    async function* filterAsync(gen: AsyncGenerator<T>, predicate: (line: T) => boolean) {
+        for await (const line of gen) {
+            if (predicate(line)) yield line;
+        }
+    }
+    async function* asyncMap(gen, mapper) {
+        for await (const item of gen) {
+            yield await mapper(item);
+        }
+    }
+
 }
+

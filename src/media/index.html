@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>LINQ Monaco</title>
+  <title>TSQueryPad</title>
   <link rel="stylesheet" data-name="vs/editor/editor.main" href="./vs/editor/editor.main.css" />
   <style>
     html,
@@ -151,14 +151,19 @@
 </head>
 
 <body>
-  <div id="help">
-    <b>lines</b> is the array of lines in the current document.<br />
-    <b style="cursor: pointer;" onclick="document.getElementById('method-list').classList.toggle('methods-hidden')">
-      Helper Methods
-    </b><br />
-    <ul id="method-list" class="methods-hidden"></ul>
-    Press <b>Ctrl+Enter</b> or click Run.
-  </div>
+ <div id="help">
+  <b>doc</b> is the object representing the current document and includes:
+  <ul>
+    <li><b>doc.lines</b>: array of lines in the document</li>
+    <li><b>doc.linesAsync</b>: async generator yielding each line</li>
+    <li><b>doc.fullText</b>: full text of the document as a string</li>
+  </ul>
+  <b style="cursor: pointer;" onclick="document.getElementById('method-list').classList.toggle('methods-hidden')">
+    Helper Methods
+  </b><br />
+  <ul id="method-list" class="methods-hidden"></ul>
+  Press <b>Ctrl+Enter</b> or click Run.
+</div>
 
   <div id="header">
     <div>
@@ -170,10 +175,6 @@
       <label style="margin-left: 8px; user-select: none;">
         <input type="checkbox" id="liveUpdateToggle" />
         Live Update
-      </label>
-      <label style="margin-left: 8px; user-select: none;">
-        <input type="checkbox" id="runCodeAsAsyncToggle" />
-        Async
       </label>
     </div>
   </div>
@@ -304,7 +305,8 @@
       require.config({ paths: { vs: window.monacoBasePath || './vs' } });
 
       require(['vs/editor/editor.main'], () => {
-        const defaultCode = `for await (const line of doc.linesAsync) {
+        const defaultCode = 
+`for await (const line of doc.linesAsync) {
   if (line.includes("TODO")) yield line;
 }`;
 
@@ -377,8 +379,7 @@
 
       vscode.postMessage({
         command: 'execute',
-        code: editor.getValue(),
-        isAsync: document.getElementById('runCodeAsAsyncToggle').checked
+        code: editor.getValue()
       });
     }
 
