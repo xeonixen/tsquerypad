@@ -168,9 +168,10 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
 
                 let userCode = message.code.trim();
 
-                if (!/return/.test(userCode) && !/for await/.test(userCode) && !/yield/.test(userCode)) {
+                if (!/for await/.test(userCode) && !/yield/.test(userCode)) {
                     isAsync = false;
-                    userCode = `return ${userCode}`;
+                    if(!/return/.test(userCode))
+                        userCode = `return ${userCode}`;
                 }
                 // }
                 const doc = {
@@ -196,8 +197,9 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
                         ${transpiled}
                     })();
                 `);
+                
                 const result = await func(doc);
-
+                
                 panel.webview.postMessage({
                     command: 'output',
                     result: await parseResult(result)
