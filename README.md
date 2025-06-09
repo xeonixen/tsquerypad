@@ -43,4 +43,10 @@ Run powerful, LINQ-inspired TypeScript/JavaScript queries on any file inside VS 
 
 ```ts
 // Find all distinct lines containing "TODO"
-lines.filter(line => line.includes("TODO")).distinct()
+doc.lines.filter(line => line.includes("TODO")).distinct()
+
+// or async
+for await(const line of doc.linesAsync){
+    if(line.includes('TODO'))
+        yield line;
+}

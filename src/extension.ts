@@ -218,12 +218,13 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
 
     context.subscriptions.push(panel);
 }
-function isAsyncGenerator(obj: any): obj is AsyncGenerator<string> {
+function isAsyncGenerator(obj: any): obj is AsyncGenerator<string> | AsyncGenerator<string[]> {
     return obj &&
         typeof obj[Symbol.asyncIterator] === 'function' &&
         typeof obj.next === 'function';
 }
-async function parseResult(result: AsyncGenerator<string> | string[] | string): Promise<{ type: 'string' | 'array' | 'arrayarray'|'async', data: string | string[] | string[][] | AsyncGenerator<string> }> {
+
+async function parseResult(result: AsyncGenerator<string[]> | AsyncGenerator<string> | string[] | string): Promise<{ type: 'string' | 'array' | 'arrayarray', data: string | string[] | string[][] }> {
     if (Array.isArray(result)) {
         if (Array.isArray(result[0]))
             return { type: 'arrayarray', data: result };
@@ -231,15 +232,19 @@ async function parseResult(result: AsyncGenerator<string> | string[] | string): 
     }
     if (typeof (result) === 'string')
         return { type: 'string', data: result };
-    if (isAsyncGenerator(result))
-        return { type: 'async', data: result }
+    if (isAsyncGenerator(result)) {
+        const data = await asyncGeneratorToArray(result);
+        const isArrayArray = data && data.length > 0 && Array.isArray(data[0]);
+        return { type: isArrayArray ? 'arrayarray' : 'array', data: data };
+    }
     // return await asyncGeneratorToString(result);
     return { type: 'string', data: String(result) };
 }
-async function asyncGeneratorToString(gen: AsyncGenerator<string>): Promise<string> {
-    let result = [];
+
+async function asyncGeneratorToArray(gen: AsyncGenerator<string> | AsyncGenerator<string[]>): Promise<string[] | string[][]> {
+    let result: any[] = [];
     for await (const chunk of gen) {
         result.push(chunk);
     }
-    return result.join('\n');
+    return result;
 }

@@ -190,6 +190,42 @@ export function defineCustomFunctions() {
         });
     }
 
+    if (!Array.prototype['sortBy']) {
+        Object.defineProperty(Array.prototype, 'sortBy', {
+            value: function <T, R>(this: T[], selector: (item: T) => R): T[] {
+                return this.slice().sort((a, b) => {
+                    const aVal = selector(a);
+                    const bVal = selector(b);
+
+                    if (aVal === bVal) return 0;
+                    if (aVal === undefined || aVal === null) return -1;
+                    if (bVal === undefined || bVal === null) return 1;
+
+                    return aVal < bVal ? -1 : 1;
+                });
+            },
+            enumerable: false
+        });
+    }
+
+    if (!Array.prototype['sortByDescending']) {
+        Object.defineProperty(Array.prototype, 'sortByDescending', {
+            value: function <T, R>(this: T[], selector: (item: T) => R): T[] {
+                return this.slice().sort((a, b) => {
+                    const aVal = selector(a);
+                    const bVal = selector(b);
+
+                    if (aVal === bVal) return 0;
+                    if (aVal === undefined || aVal === null) return 1;
+                    if (bVal === undefined || bVal === null) return -1;
+
+                    return aVal > bVal ? -1 : 1;
+                });
+            },
+            enumerable: false
+        });
+    }
+
     if (!String.prototype['json']) {
         Object.defineProperty(String.prototype, 'json', {
             value: function <T = any>(): T | null {
@@ -225,4 +261,3 @@ export function defineCustomFunctions() {
     }
 
 }
-

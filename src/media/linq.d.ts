@@ -4,16 +4,12 @@ declare const doc: {
   get fullText(): string;
 }
 
-declare async function* filterAsync<T>(gen: AsyncGenerator<T>, predicate: (line: T) => boolean): AsyncGenerator<T>;
-
-declare async function* mapAsync<T, R>(gen: AsyncGenerator<T>, mapper: (item: T) => R | Promise<R>): AsyncGenerator<R>
-
 //@ts-ignore
 declare async function* __userWrapper__(): AsyncGenerator<any>;
 
 interface Group<TKey, TElement> extends Array<TElement> {
   key: TKey;
-};
+}
 
 type UserReturnType =
   string
@@ -22,6 +18,7 @@ type UserReturnType =
   | { x: number, y: number }[]
   | { label: string, value: number }[]
   | AsyncGenerator<string>
+  | AsyncGenerator<string[]>
   | void;
 
 interface String {
@@ -158,4 +155,28 @@ interface Array<T> {
    * @returns The first matching element or undefined.
    */
   firstOrDefault(predicate?: (item: T) => boolean): T | undefined;
+
+  /**
+   * Returns a new array sorted in ascending order based on a selector function.
+   * Does not modify the original array.
+   * 
+   * @param selector - A function that returns the value to sort by.
+   * @returns {T[]} A new sorted array.
+   * 
+   * @example
+   * const sorted = users.sortBy(user => user.age);
+   */
+  sortBy<R>(selector: (item: T) => R): T[];
+
+  /**
+   * Returns a new array sorted in descending order based on a selector function.
+   * Does not modify the original array.
+   * 
+   * @param selector - A function that returns the value to sort by.
+   * @returns {T[]} A new sorted array in descending order.
+   * 
+   * @example
+   * const sorted = users.sortByDescending(user => user.age);
+   */
+  sortByDescending<R>(selector: (item: T) => R): T[];
 }

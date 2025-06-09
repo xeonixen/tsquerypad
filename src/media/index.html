@@ -213,7 +213,7 @@
       return `
       // Dummy line to ensure this is treated as a script/module
       
-      async function* __userWrapper__(): AsyncGenerator<string> {
+      async function* __userWrapper__(): UserReturnType {
         ${userCode}
       }
       `;
@@ -461,13 +461,6 @@
                     const cell = row.insertCell();
                     cell.appendChild(document.createTextNode(col));
                   }
-                }
-                break;
-              case 'async':
-                outputElement.innerHTML = '';
-                for  (const item of msg.result.data) {
-                  const el = document.createTextNode(item);
-                  outputElement.appendChild(el);
                 }
                 break;
             }
