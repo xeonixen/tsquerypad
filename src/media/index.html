@@ -151,19 +151,19 @@
 </head>
 
 <body>
- <div id="help">
-  <b>doc</b> is the object representing the current document and includes:
-  <ul>
-    <li><b>doc.lines</b>: array of lines in the document</li>
-    <li><b>doc.linesAsync</b>: async generator yielding each line</li>
-    <li><b>doc.fullText</b>: full text of the document as a string</li>
-  </ul>
-  <b style="cursor: pointer;" onclick="document.getElementById('method-list').classList.toggle('methods-hidden')">
-    Helper Methods
-  </b><br />
-  <ul id="method-list" class="methods-hidden"></ul>
-  Press <b>Ctrl+Enter</b> or click Run.
-</div>
+  <div id="help">
+    <b>doc</b> is the object representing the current document and includes:
+    <ul>
+      <li><b>doc.lines</b>: array of lines in the document</li>
+      <li><b>doc.linesAsync</b>: async generator yielding each line</li>
+      <li><b>doc.fullText</b>: full text of the document as a string</li>
+    </ul>
+    <b style="cursor: pointer;" onclick="document.getElementById('method-list').classList.toggle('methods-hidden')">
+      Helper Methods
+    </b><br />
+    <ul id="method-list" class="methods-hidden"></ul>
+    Press <b>Ctrl+Enter</b> or click Run.
+  </div>
 
   <div id="header">
     <div>
@@ -305,10 +305,8 @@
       require.config({ paths: { vs: window.monacoBasePath || './vs' } });
 
       require(['vs/editor/editor.main'], () => {
-        const defaultCode = 
-`for await (const line of doc.linesAsync) {
-  if (line.includes("TODO")) yield line;
-}`;
+        const defaultCode =
+          `doc.lines.filter(line => line.includes('TODO')).slice(0,10)`;
 
         editor = monaco.editor.create(inputContainer, {
           value: defaultCode,
@@ -318,7 +316,7 @@
           fontSize: 14,
           minimap: { enabled: false },
         });
-
+        loadState();
         monaco.languages.typescript.typescriptDefaults.addExtraLib(window.linqTypings, 'ts:linq.d.ts');
 
         monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
@@ -420,7 +418,7 @@
       if (!editor) return;
       vscode.setState({
         code: editor.getValue(),
-        output: outputElement.textContent,
+        output: outputElement.innerHTML,
       });
     }
 
@@ -428,7 +426,7 @@
       const savedState = vscode.getState();
       if (savedState) {
         if (savedState.code) editor?.setValue(savedState.code);
-        if (savedState.output) outputElement.textContent = savedState.output;
+        if (savedState.output) outputElement.innerHTML = savedState.output;
       }
     }
 
@@ -437,14 +435,50 @@
 
       window.addEventListener('message', (event) => {
         const msg = event.data;
-        if (msg.command === 'output') {
-          runningIndicator.style.display = 'none';
-          outputElement.textContent = msg.result;
-          saveState();
+        switch (msg.command) {
+          case 'clear':
+
+            break;
+          case 'output':
+            switch (msg.result.type) {
+              case 'string':
+                outputElement.innerHTML = msg.result.data
+                break;
+              case 'array':
+                outputElement.innerHTML = '';
+                for (const item of msg.result.data) {
+                  const el = document.createTextNode(item + '\n');
+                  outputElement.appendChild(el);
+                }
+                break;
+              case 'arrayarray':
+                outputElement.innerHTML = '';
+                const tbl = document.createElement('table');
+                outputElement.appendChild(tbl);
+                for (const item of msg.result.data) {
+                  const row = tbl.insertRow();
+                  for(const col of item){
+                    const cell = row.insertCell();
+                    cell.appendChild(document.createTextNode(col));
+                  }
+                }
+                break;
+              case 'async':
+                outputElement.innerHTML = '';
+                for  (const item of msg.result.data) {
+                  const el = document.createTextNode(item);
+                  outputElement.appendChild(el);
+                }
+                break;
+            }
+            runningIndicator.style.display = 'none';
+            // render(msg.type, msg.result);
+            saveState();
+            break;
         }
       });
     }
-
+    
     function initMethodList() {
       if (!window.methodDescriptions) return;
 
@@ -496,7 +530,6 @@
       initMonacoEditor();
       setupDividerDragging();
       setupRunHandlers();
-      loadState();
       initHeader();
     }
 

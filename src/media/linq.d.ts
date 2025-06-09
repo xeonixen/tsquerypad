@@ -24,6 +24,22 @@ type UserReturnType =
   | AsyncGenerator<string>
   | void;
 
+interface String {
+  /**
+   * Parses the string as JSON (after replacing single quotes with double quotes).
+   * @template T - Optional type of the parsed result. Defaults to any.
+   * @returns Parsed object of type T, or null if parsing fails.
+   */
+  json<T = any>(): T | null;
+}
+interface Object {
+  /**
+   * Converts the object to a JSON string.
+   * @param {number} [space] Optional number of spaces for pretty-printing.
+   * @returns {string} JSON string representation of the object.
+   */
+  json(space?: number): string;
+}
 interface Array<T> {
 
   /**

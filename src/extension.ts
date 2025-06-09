@@ -105,7 +105,7 @@ function extractMethodDescriptions(typingsContent: string): { name: string, sign
 
     while ((match = methodSignatureRegex.exec(typingsContent)) !== null) {
         let comment = (match[1] || match[2])?.trim() ?? "";
-        comment = comment.replaceAll('**','\n').replaceAll('*','\n');
+        comment = comment.replaceAll('**', '\n').replaceAll('*', '\n');
         const signature = match[3]?.trim() ?? "";
         const name = signature.split('(')[0];
         methodInfo.push({ name, signature, description: comment });
@@ -171,7 +171,7 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
 
                 if (!/for await/.test(userCode) && !/yield/.test(userCode)) {
                     isAsync = false;
-                    if(!/return/.test(userCode))
+                    if (!/return/.test(userCode))
                         userCode = `return ${userCode}`;
                 }
                 // }
@@ -186,7 +186,7 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
                         return readFullText(filePath, originalDocument);
                     }
                 };
-                
+
                 const transpiled = ts.transpile(userCode, {
                     module: ts.ModuleKind.ESNext,     // or CommonJS if you need require()
                     target: ts.ScriptTarget.ES2020,   // or ES2017 or latest
@@ -198,9 +198,9 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
                         ${transpiled}
                     })();
                 `);
-                
+
                 const result = await func(doc);
-                
+
                 panel.webview.postMessage({
                     command: 'output',
                     result: await parseResult(result)
@@ -223,14 +223,18 @@ function isAsyncGenerator(obj: any): obj is AsyncGenerator<string> {
         typeof obj[Symbol.asyncIterator] === 'function' &&
         typeof obj.next === 'function';
 }
-async function parseResult(result: AsyncGenerator<string> | string[] | string): Promise<string> {
-    if (Array.isArray(result))
-        return result.join('\n');
+async function parseResult(result: AsyncGenerator<string> | string[] | string): Promise<{ type: 'string' | 'array' | 'arrayarray'|'async', data: string | string[] | string[][] | AsyncGenerator<string> }> {
+    if (Array.isArray(result)) {
+        if (Array.isArray(result[0]))
+            return { type: 'arrayarray', data: result };
+        return { type: 'array', data: result };
+    }
     if (typeof (result) === 'string')
-        return result;
+        return { type: 'string', data: result };
     if (isAsyncGenerator(result))
-        return await asyncGeneratorToString(result);
-    return String(result);
+        return { type: 'async', data: result }
+    // return await asyncGeneratorToString(result);
+    return { type: 'string', data: String(result) };
 }
 async function asyncGeneratorToString(gen: AsyncGenerator<string>): Promise<string> {
     let result = [];

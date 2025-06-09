@@ -190,6 +190,29 @@ export function defineCustomFunctions() {
         });
     }
 
+    if (!String.prototype['json']) {
+        Object.defineProperty(String.prototype, 'json', {
+            value: function <T = any>(): T | null {
+                try {
+                    const normalized = this.replace(/'/g, '"');
+                    return JSON.parse(normalized) as T;
+                } catch {
+                    return null;
+                }
+            },
+            enumerable: false,
+        });
+    }
+
+    if (!Object.prototype.hasOwnProperty('json')) {
+        Object.defineProperty(Object.prototype, 'json', {
+            value: function (space?: number): string {
+                return JSON.stringify(this, null, space);
+            },
+            enumerable: false,
+        });
+    }
+
     async function* filterAsync(gen: AsyncGenerator<T>, predicate: (line: T) => boolean) {
         for await (const line of gen) {
             if (predicate(line)) yield line;
