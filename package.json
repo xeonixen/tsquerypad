@@ -2,7 +2,7 @@
   "name": "tsquerypad",
   "displayName": "TSQueryPad",
   "description": "TSQueryPad is a developer tool for querying files using TypeScript. Whether you're analyzing logs, extracting strings from binaries, or filtering source code, TSQueryPad gives you a flexible playground with LINQ-style helpers and full JavaScript/TypeScript power.",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "engines": {
     "vscode": "^1.100.0"
   },
