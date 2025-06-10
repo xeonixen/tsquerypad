@@ -179,4 +179,15 @@ interface Array<T> {
    * const sorted = users.sortByDescending(user => user.age);
    */
   sortByDescending<R>(selector: (item: T) => R): T[];
+
+  /**
+   * Returns a new array with an object for each row, properties for each header.
+   * Does not modify the original array.
+   * 
+   * @returns {T[]} A new with objects.
+   * 
+   * @example
+   * const sensorReadings = csvLineSensorReadingsWithHeaders.csv();
+   */
+  csv<T>(separator?: string): T[];
 }

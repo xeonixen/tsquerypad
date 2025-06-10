@@ -226,6 +226,24 @@ export function defineCustomFunctions() {
         });
     }
 
+    if (!Array.prototype['csv']) {
+        Object.defineProperty(Array.prototype, 'csv', {
+            value: function <R>(this: string[], separator?: string): R[] {
+                if(!separator)
+                    separator = ',';
+                const headers = this.slice(0,1).map(x => x.split(separator).map(y => y.trim()))[0];
+                return this.slice(1).map(line => {
+                    const obj = {};
+                    for(let i = 0; i < headers.length; i++){
+                        obj[headers[i]] = line.split(',')[i]?.trim();
+                    }
+                    return obj;
+                });
+            },
+            enumerable: false
+        });
+    }
+
     if (!String.prototype['json']) {
         Object.defineProperty(String.prototype, 'json', {
             value: function <T = any>(): T | null {

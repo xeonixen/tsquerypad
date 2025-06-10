@@ -17,7 +17,6 @@ export function activate(context: vscode.ExtensionContext) {
         linqTypingsContent = fs.readFileSync(linqTypingsPath, 'utf8');
         createMonacoWebView(context, filePath, originalDocument);
     });
-
     context.subscriptions.push(disposable);
 }
 
