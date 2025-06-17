@@ -22,12 +22,20 @@
       {
         "command": "tsquerypad.openQuery",
         "title": "Run TSQueryPad on Document"
+      },
+      {
+        "command": "tsquerypad.addToQuery",
+        "title": "Add document to current query"
       }
     ],
     "menus": {
       "explorer/context": [
         {
           "command": "tsquerypad.openQuery",
+          "group": "navigation"
+        },
+        {
+          "command": "tsquerypad.addToQuery",
           "group": "navigation"
         }
       ]

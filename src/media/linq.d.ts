@@ -1,8 +1,9 @@
-declare const doc: {
-  get lines(): string[];
-  get linesAsync(): AsyncGenerator<string>;
-  get fullText(): string;
+type doc = {
+  readonly lines: string[];
+  readonly linesAsync: AsyncGenerator<string>;
+  readonly fullText: string;
 }
+declare const docs: doc[];
 
 //@ts-ignore
 declare async function* __userWrapper__(): AsyncGenerator<any>;

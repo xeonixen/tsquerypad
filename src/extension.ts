@@ -5,19 +5,34 @@ import * as vscode from 'vscode';
 import { defineCustomFunctions } from './media/linq';
 import { extractStrings, extractStringsAsync } from './extract_strings';
 import ts from 'typescript';
+import { UUID } from 'crypto';
 
 const baseDir = "out";
 
 let linqTypingsContent: string;
+let tsqueryeditors: { guid: UUID, panel: vscode.WebviewPanel, addSource: (source: IFileSource) => void }[] = [];
 export function activate(context: vscode.ExtensionContext) {
-    const disposable = vscode.commands.registerCommand('tsquerypad.openQuery', (fileUri: vscode.Uri) => {
-        const filePath = fileUri?.fsPath;
-        const originalDocument = vscode.window.activeTextEditor?.document;
+    const openQueryDisposable = vscode.commands.registerCommand('tsquerypad.openQuery', (fileUri: vscode.Uri) => {
+        const filePath = fileUri?.fsPath ?? vscode.window.activeTextEditor?.document?.fileName;
         const linqTypingsPath = path.join(context.extensionPath, baseDir, 'media', 'linq.d.ts');
         linqTypingsContent = fs.readFileSync(linqTypingsPath, 'utf8');
-        createMonacoWebView(context, filePath, originalDocument);
+        createMonacoWebView(context, filePath);
     });
-    context.subscriptions.push(disposable);
+    context.subscriptions.push(openQueryDisposable);
+    const addToQueryDisposable = vscode.commands.registerCommand('tsquerypad.addToQuery', (fileUri: vscode.Uri) => {
+        const filePath = fileUri?.fsPath ?? vscode.window.activeTextEditor?.document?.fileName;
+        const activePanel = tsqueryeditors.find(p => p.panel.active);
+        if (activePanel) {
+            const fName = path.basename(filePath ?? "Unknown");
+            const fType = isBinaryFile(filePath ?? "text.txt") ? 'Binary' : 'Text';
+            activePanel.addSource({
+                fileName: fName,
+                filePath: filePath,
+                fileType: fType
+            });
+        }
+    });
+    context.subscriptions.push(addToQueryDisposable);
 }
 
 export function deactivate() { }
@@ -41,14 +56,9 @@ async function* streamLines(filePath: string): AsyncGenerator<string> {
     stream.close();
 }
 
-async function* getFileContentAsync(filePath: string | undefined, originalDocument: vscode.TextDocument | undefined): AsyncGenerator<string> {
+async function* getFileContentAsync(filePath: string): AsyncGenerator<string> {
     if (!filePath || !(await fileExistsAsync(filePath))) {
-        if (!originalDocument)
-            throw Error("Could not read file or document");
-
-        for (let i = 0; i < originalDocument.lineCount; i++) {
-            yield originalDocument.lineAt(i).text;
-        }
+        throw Error("Could not read file or document");
     } else {
         const generator = isBinaryFile(filePath)
             ? extractStringsAsync(filePath)
@@ -56,20 +66,16 @@ async function* getFileContentAsync(filePath: string | undefined, originalDocume
         yield* generator;
     }
 }
-function getFileContent(filePath: string | undefined, originalDocument: vscode.TextDocument | undefined): string[] {
+function getFileContent(filePath: string): string[] {
     if (!filePath || !(fileExists(filePath))) {
-        if (!originalDocument)
-            throw Error("Could not read file or document");
-        return originalDocument.getText().split('\n');
+        throw Error("Could not read file or document");
     } else {
         return isBinaryFile(filePath) ?
             extractStrings(filePath) :
             readFileLines(filePath)
     }
 }
-export function readFullText(filePath: string | undefined, originalDocument: vscode.TextDocument | undefined): string {
-    if (originalDocument)
-        return originalDocument.getText();
+export function readFullText(filePath: string | undefined): string {
     if (filePath && fileExists(filePath))
         return fs.readFileSync(filePath, 'utf8');
     throw new Error("File or document not found");
@@ -112,8 +118,15 @@ function extractMethodDescriptions(typingsContent: string): { name: string, sign
 
     return methodInfo.filter(m => m.signature.length > 0);
 }
-
-function createMonacoWebView(context: vscode.ExtensionContext, filePath: string | undefined, originalDocument: vscode.TextDocument | undefined) {
+interface IFileSource {
+    index?: number,
+    fileName: string,
+    filePath: string,
+    fileType: string
+}
+function createMonacoWebView(context: vscode.ExtensionContext, filePath: string) {
+    const guid = crypto.randomUUID();
+    const sources: IFileSource[] = [];
     const panel = vscode.window.createWebviewPanel(
         'monacoEditor',
         'LINQ Query',
@@ -132,8 +145,9 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
     const vsUri = panel.webview.asWebviewUri(vsPathOnDisk);
 
 
-    const fileName = path.basename(filePath ?? originalDocument?.fileName ?? "Unknown");
-    const fileType = isBinaryFile(filePath ?? originalDocument?.fileName ?? "text.txt") ? 'Binary' : 'Text';
+    const fileName = path.basename(filePath ?? "Unknown");
+    const fileType = isBinaryFile(filePath ?? "text.txt") ? 'Binary' : 'Text';
+    sources.push({ index: 0, fileName: fileName, filePath: filePath, fileType: fileType });
     const methodDescriptions = extractMethodDescriptions(linqTypingsContent);
     let html = fs.readFileSync(htmlPath, 'utf8');
 
@@ -149,13 +163,14 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
     );
 
     html = html.replace(/(src|href)="(.+?)"/g, (match, attr, srcPath) => {
-        if (srcPath.startsWith('./vs')) {
+        if (srcPath.startsWith('./')) {
             const diskPath = vscode.Uri.file(path.join(context.extensionPath, baseDir, 'media', srcPath));
             const webviewUri = panel.webview.asWebviewUri(diskPath);
             return `${attr}="${webviewUri.toString()}"`;
         }
         return match;
     });
+
 
     panel.webview.html = html;
 
@@ -174,31 +189,34 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
                         userCode = `return ${userCode}`;
                 }
                 // }
-                const doc = {
-                    get lines(): string[] {
-                        return getFileContent(filePath, originalDocument);
-                    },
-                    get linesAsync(): AsyncGenerator<string> {
-                        return getFileContentAsync(filePath, originalDocument);
-                    },
-                    get fullText(): string {
-                        return readFullText(filePath, originalDocument);
-                    }
-                };
+                const docs = [];
+                for (const source of sources) {
+                    docs.push({
+                        get lines(): string[] {
+                            return getFileContent(source.filePath);
+                        },
+                        get linesAsync(): AsyncGenerator<string> {
+                            return getFileContentAsync(source.filePath);
+                        },
+                        get fullText(): string {
+                            return readFullText(source.filePath);
+                        }
+                    });
+                }
 
                 const transpiled = ts.transpile(userCode, {
                     module: ts.ModuleKind.ESNext,     // or CommonJS if you need require()
                     target: ts.ScriptTarget.ES2020,   // or ES2017 or latest
                     strict: true
                 });
-                const func = new Function('doc', `
+                const func = new Function('docs', `
                     'use strict';
                     return (async function${isAsync ? '*' : ''}() {
                         ${transpiled}
                     })();
                 `);
 
-                const result = await func(doc);
+                const result = await func(docs);
 
                 panel.webview.postMessage({
                     command: 'output',
@@ -213,9 +231,22 @@ function createMonacoWebView(context: vscode.ExtensionContext, filePath: string 
     // Dispose listener when panel closes
     panel.onDidDispose(() => {
         disposable.dispose();
+        const c = tsqueryeditors.find(x => x.guid === guid);
+        if (c)
+            tsqueryeditors.splice(tsqueryeditors.indexOf(c), 1);
     }, null, context.subscriptions);
 
     context.subscriptions.push(panel);
+    tsqueryeditors.push({
+        guid: guid,
+        addSource: ((s: IFileSource) =>{
+            s.index = sources.length;
+            sources.push(s);
+            (s as any).command = 'sourceAdded';
+            panel.webview.postMessage(s);
+        }),
+        panel: panel
+    })
 }
 function isAsyncGenerator(obj: any): obj is AsyncGenerator<string> | AsyncGenerator<string[]> {
     return obj &&
